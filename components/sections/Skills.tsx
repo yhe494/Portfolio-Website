@@ -1,8 +1,11 @@
 import SectionTitle from "../SectionTitle"
 
 const skills = {
-  frontend: ["React", "TypeScript", "JavaScript", "HTML5", "CSS3"],
-  backend: ["Node.js", "Express", "Spring Boot", "FastAPI", "REST APIs"],
+  programmingLanguages: ["JavaScript", "TypeScript", "Python", "Java", "C#"],
+  frontend: ["React.js", "Vue.js", "Angular.js", "HTML5", "CSS3"],
+  backend: ["Node.js", "Express.js", "Spring Boot", "FastAPI", "REST APIs"],
+  fullstack: ["Next.js", "ASP.NET Core", "Microservices"],
+  database: ["MongoDB", "MySQL", "PostgreSQL", "DynamoDB", "Oracle"],
   tools: ["AWS", "Docker", "GitHub Actions", "Postman", "Git"],
 }
 
@@ -28,9 +31,13 @@ export default function Skills() {
     <>
       <SectionTitle title="Skills" />
       <div className="grid gap-6 md:grid-cols-3">
+        <Card title="Programming Languages" items={skills.programmingLanguages} />
         <Card title="Frontend" items={skills.frontend} />
         <Card title="Backend" items={skills.backend} />
+        <Card title="Fullstack" items={skills.fullstack} />
+        <Card title="Database" items={skills.database} />
         <Card title="Tools" items={skills.tools} />
+
       </div>
     </>
   )

@@ -4,6 +4,7 @@ const experience = {
   type: 'document',
   fields: [
     { name: 'company', title: 'Company', type: 'string' },
+    { name: 'location', title: 'Location', type: 'string' },
     { name: 'role', title: 'Role', type: 'string' },
     { name: 'startDate', title: 'Start Date', type: 'date' },
     { name: 'endDate', title: 'End Date', type: 'date' },

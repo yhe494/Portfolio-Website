@@ -8,7 +8,12 @@ const project = {
             title: 'Title',
             type: 'string',
         },
-        { name: 'summary', title: 'Summary', type: 'text' },
+        {
+            name: 'summary',
+            title: 'Summary',
+            type: 'array',
+            of: [{ type: 'block' }],
+        },
     { name: 'techStack', title: 'Tech Stack', type: 'array', of: [{ type: 'string' }] },
     { name: 'github', title: 'GitHub URL', type: 'url' },
     { name: 'featured', title: 'Featured', type: 'boolean' },

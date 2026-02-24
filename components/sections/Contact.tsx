@@ -1,60 +1,66 @@
-import SectionTitle from "@/components/SectionTitle"
+type SiteSettings = {
+  email?: string
+  github?: string
+  linkedin?: string
+}
 
-export default function Contact() {
+export default function Contact({ settings }: { settings: SiteSettings }) {
   return (
-    <div className="grid gap-10 md:grid-cols-2 md:items-start">
-      <div>
-        <SectionTitle title="Contact" />
-        <p className="text-black/70 leading-relaxed">
-          Feel free to reach out — I’m open to internships and entry-level
-          software roles.
-        </p>
+    <div className="text-center">
+      <h2 className="font-serif text-4xl">Get In Touch</h2>
+      <p className="mt-4 text-lg opacity-70 max-w-xl mx-auto">
+        I&apos;m always open to new opportunities and collaborations. Feel free to reach out!
+      </p>
 
-        <div className="mt-6 space-y-3 text-black/70">
-          <div>
-            <span className="font-semibold text-black/80">Email: </span>
-            <a className="underline" href="mailto:yhe4940@outlook.com">
-              yhe4940@outlook.com
-            </a>
-          </div>
-          <div>
-            <span className="font-semibold text-black/80">GitHub: </span>
-            <a className="underline" href="https://github.com/yourname" target="_blank" rel="noreferrer">
-              github.com/yourname
-            </a>
-          </div>
-          <div>
-            <span className="font-semibold text-black/80">LinkedIn: </span>
-            <a className="underline" href="https://linkedin.com/in/yourname" target="_blank" rel="noreferrer">
-              linkedin.com/in/yourname
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-black/10 bg-white/40 p-8 shadow-sm">
-        <div className="text-sm tracking-widest text-black/60 uppercase">
-          Quick Message
-        </div>
-        <p className="mt-4 text-black/70">
-          If you tell me what role you’re hiring for and what stack you use,
-          I’ll reply with relevant projects and availability.
-        </p>
-
-        <div className="mt-6 flex gap-3">
+      <div className="mt-10 flex flex-wrap justify-center gap-5">
+        {settings?.email && (
           <a
-            href="mailto:yhe4940@outlook.com?subject=Portfolio%20Inquiry"
-            className="rounded-full border border-black/30 px-6 py-2 text-sm tracking-widest uppercase hover:bg-black/5"
+            href={`mailto:${settings.email}`}
+            className="group flex items-center gap-3 rounded-2xl border border-black/10 bg-white/60 px-6 py-4 shadow-sm transition hover:shadow-md hover:-translate-y-0.5"
           >
-            Email Me
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-lg transition group-hover:bg-black/10">
+              ✉️
+            </span>
+            <div className="text-left">
+              <div className="text-xs font-medium uppercase tracking-wider opacity-50">Email</div>
+              <div className="font-medium">{settings.email}</div>
+            </div>
           </a>
+        )}
+
+        {settings?.github && (
           <a
-            href="#top"
-            className="rounded-full border border-black/30 px-6 py-2 text-sm tracking-widest uppercase hover:bg-black/5"
+            href={settings.github}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-3 rounded-2xl border border-black/10 bg-white/60 px-6 py-4 shadow-sm transition hover:shadow-md hover:-translate-y-0.5"
           >
-            Back to Top
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-lg transition group-hover:bg-black/10">
+              💻
+            </span>
+            <div className="text-left">
+              <div className="text-xs font-medium uppercase tracking-wider opacity-50">GitHub</div>
+              <div className="font-medium">GitHub Profile</div>
+            </div>
           </a>
-        </div>
+        )}
+
+        {settings?.linkedin && (
+          <a
+            href={settings.linkedin}
+            target="_blank"
+            rel="noreferrer"
+            className="group flex items-center gap-3 rounded-2xl border border-black/10 bg-white/60 px-6 py-4 shadow-sm transition hover:shadow-md hover:-translate-y-0.5"
+          >
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-black/5 text-lg transition group-hover:bg-black/10">
+              🔗
+            </span>
+            <div className="text-left">
+              <div className="text-xs font-medium uppercase tracking-wider opacity-50">LinkedIn</div>
+              <div className="font-medium">LinkedIn Profile</div>
+            </div>
+          </a>
+        )}
       </div>
     </div>
   )
