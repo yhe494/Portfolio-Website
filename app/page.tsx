@@ -10,6 +10,7 @@ import BackToTop from "@/components/BackToTop"
 import { client } from "@/sanity/lib/client"
 import { siteSettingsQuery, experiencesQuery, projectsQuery } from "@/sanity/lib/queries"
 
+export const revalidate = 60 
 function Container({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto max-w-6xl px-6">{children}</div>
 }
