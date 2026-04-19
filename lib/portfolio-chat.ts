@@ -328,6 +328,34 @@ export async function getEmbeddedKnowledge(inputs: KnowledgeInputs) {
   return embedded
 }
 
+function extractTextsDeep(value: unknown): string[] {
+  if (!value) return []
+
+  if (typeof value === "string") {
+    return value.trim() ? [value.trim()] : []
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractTextsDeep(item))
+  }
+
+  if (typeof value !== "object") {
+    return []
+  }
+
+  const record = value as Record<string, unknown>
+  const directText =
+    typeof record.text === "string" && record.text.trim() ? [record.text.trim()] : []
+
+  return [
+    ...directText,
+    ...extractTextsDeep(record.output_text),
+    ...extractTextsDeep(record.content),
+    ...extractTextsDeep(record.output),
+    ...extractTextsDeep(record.part),
+  ]
+}
+
 function extractResponseText(data: unknown): string {
   if (
     data &&
@@ -364,7 +392,7 @@ function extractResponseText(data: unknown): string {
       .trim()
   }
 
-  return ""
+  return extractTextsDeep(data).join("\n").trim()
 }
 
 export async function answerPortfolioQuestion({
