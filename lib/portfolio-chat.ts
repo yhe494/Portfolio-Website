@@ -328,7 +328,7 @@ export async function getEmbeddedKnowledge(inputs: KnowledgeInputs) {
   return embedded
 }
 
-function extractTextsDeep(value: unknown): string[] {
+function extractTextsDeep(value: unknown, seen = new WeakSet<object>()): string[] {
   if (!value) return []
 
   if (typeof value === "string") {
@@ -336,12 +336,18 @@ function extractTextsDeep(value: unknown): string[] {
   }
 
   if (Array.isArray(value)) {
-    return value.flatMap((item) => extractTextsDeep(item))
+    return value.flatMap((item) => extractTextsDeep(item, seen))
   }
 
   if (typeof value !== "object") {
     return []
   }
+
+  if (seen.has(value as object)) {
+    return []
+  }
+
+  seen.add(value as object)
 
   const record = value as Record<string, unknown>
   const directText =
@@ -349,10 +355,15 @@ function extractTextsDeep(value: unknown): string[] {
 
   return [
     ...directText,
-    ...extractTextsDeep(record.output_text),
-    ...extractTextsDeep(record.content),
-    ...extractTextsDeep(record.output),
-    ...extractTextsDeep(record.part),
+    ...extractTextsDeep(record.value, seen),
+    ...extractTextsDeep(record.output_text, seen),
+    ...extractTextsDeep(record.content, seen),
+    ...extractTextsDeep(record.output, seen),
+    ...extractTextsDeep(record.part, seen),
+    ...extractTextsDeep(record.text, seen),
+    ...Object.entries(record)
+      .filter(([key]) => !["output_text", "content", "output", "part", "text", "value"].includes(key))
+      .flatMap(([, nestedValue]) => extractTextsDeep(nestedValue, seen)),
   ]
 }
 
@@ -471,6 +482,10 @@ export async function answerPortfolioQuestion({
   const answer = extractResponseText(data)
 
   if (!answer) {
+    console.error(
+      "Chat model returned empty text payload",
+      JSON.stringify(data).slice(0, 4000),
+    )
     throw new Error("The chat model returned an empty response.")
   }
 
