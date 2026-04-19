@@ -24,3 +24,11 @@ export const projectsQuery = `*[_type == "project"] | order(featured desc, title
   github,
   featured
 }`
+
+export const coursesQuery = `*[_type == "course"] | order(completedDate desc, title asc){
+  title,
+  provider,
+  completedDate,
+  topics,
+  notes
+}`

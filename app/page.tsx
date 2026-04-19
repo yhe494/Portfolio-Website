@@ -4,11 +4,16 @@ import About from "@/components/sections/About"
 import Experience from "@/components/sections/Experience"
 import Skills from "@/components/sections/Skills"
 import Projects from "@/components/sections/Projects"
+import AskMe from "@/components/sections/AskMe"
 import Contact from "@/components/sections/Contact"
 import BackToTop from "@/components/BackToTop"
 
 import { client } from "@/sanity/lib/client"
-import { siteSettingsQuery, experiencesQuery, projectsQuery } from "@/sanity/lib/queries"
+import {
+  siteSettingsQuery,
+  experiencesQuery,
+  projectsQuery,
+} from "@/sanity/lib/queries"
 
 export const revalidate = 60 
 function Container({ children }: { children: React.ReactNode }) {
@@ -79,6 +84,7 @@ export default async function Home() {
       </footer>
 
       <BackToTop />
+      <AskMe />
     </div>
   )
 }
