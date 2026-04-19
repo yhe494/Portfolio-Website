@@ -67,7 +67,8 @@ const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small"
 const TOP_K = 6
 const MAX_CONTEXT_MESSAGES = Number(process.env.CHAT_MAX_CONTEXT_MESSAGES || 4)
-const MAX_OUTPUT_TOKENS = Number(process.env.CHAT_MAX_OUTPUT_TOKENS || 180)
+const MAX_OUTPUT_TOKENS = Number(process.env.CHAT_MAX_OUTPUT_TOKENS || 220)
+const REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || "low"
 
 const embeddingCache = new Map<string, number[]>()
 let knowledgeCache:
@@ -465,10 +466,14 @@ export async function answerPortfolioQuestion({
         },
       ],
       max_output_tokens: MAX_OUTPUT_TOKENS,
+      reasoning: {
+        effort: REASONING_EFFORT,
+      },
       text: {
         format: {
           type: "text",
         },
+        verbosity: "low",
       },
     }),
   })
