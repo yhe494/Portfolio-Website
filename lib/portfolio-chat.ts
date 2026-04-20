@@ -511,38 +511,43 @@ export async function answerPortfolioQuestion({
     .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
     .join("\n")
 
+  const requestBody: Record<string, unknown> = {
+    model: CHAT_MODEL,
+    instructions:
+      "You are the portfolio assistant for Yanhua He. Answer only using the provided knowledge snippets. If the answer is not supported by the snippets, say that you do not see that information in Yanhua's background yet. Keep answers concise, professional, and recruiter-friendly. Answer in first person when describing Yanhua's background, but do not invent metrics, employers, courses, or technologies. When the user asks about an area like backend, cloud, debugging, or strengths, synthesize across relevant work experience, projects, and skills into a very short summary instead of listing one item. Use this format only: first, 1-2 short sentences summarizing the overall experience; second, one very short line that starts with 'Shows up in:' followed by only the most relevant jobs or projects. Keep the total answer under 70 words. Do not include bullets, extra explanation, or long detail.",
+    input: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "input_text",
+            text: `Recent conversation:\n${recentMessages || "No prior conversation."}\n\nUser question:\n${question}\n\nGrounding knowledge:\n${context}\n\nWrite a short answer grounded only in the knowledge above.`,
+          },
+        ],
+      },
+    ],
+    max_output_tokens: MAX_OUTPUT_TOKENS,
+    text: {
+      format: {
+        type: "text",
+      },
+      verbosity: "low",
+    },
+  }
+
+  if (CHAT_MODEL.startsWith("gpt-5")) {
+    requestBody.reasoning = {
+      effort: REASONING_EFFORT,
+    }
+  }
+
   const response = await fetch(`${OPENAI_API_URL}/responses`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: CHAT_MODEL,
-      instructions:
-        "You are the portfolio assistant for Yanhua He. Answer only using the provided knowledge snippets. If the answer is not supported by the snippets, say that you do not see that information in Yanhua's background yet. Keep answers concise, professional, and recruiter-friendly. Answer in first person when describing Yanhua's background, but do not invent metrics, employers, courses, or technologies. When the user asks about an area like backend, cloud, debugging, or strengths, synthesize across relevant work experience, projects, and skills into a very short summary instead of listing one item. Use this format only: first, 1-2 short sentences summarizing the overall experience; second, one very short line that starts with 'Shows up in:' followed by only the most relevant jobs or projects. Keep the total answer under 70 words. Do not include bullets, extra explanation, or long detail.",
-      input: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "input_text",
-              text: `Recent conversation:\n${recentMessages || "No prior conversation."}\n\nUser question:\n${question}\n\nGrounding knowledge:\n${context}\n\nWrite a short answer grounded only in the knowledge above.`,
-            },
-          ],
-        },
-      ],
-      max_output_tokens: MAX_OUTPUT_TOKENS,
-      reasoning: {
-        effort: REASONING_EFFORT,
-      },
-      text: {
-        format: {
-          type: "text",
-        },
-        verbosity: "low",
-      },
-    }),
+    body: JSON.stringify(requestBody),
   })
 
   if (!response.ok) {
