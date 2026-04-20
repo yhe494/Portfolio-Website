@@ -531,13 +531,18 @@ export async function answerPortfolioQuestion({
       format: {
         type: "text",
       },
-      verbosity: "low",
     },
   }
 
   if (CHAT_MODEL.startsWith("gpt-5")) {
     requestBody.reasoning = {
       effort: REASONING_EFFORT,
+    }
+    requestBody.text = {
+      format: {
+        type: "text",
+      },
+      verbosity: "low",
     }
   }
 
