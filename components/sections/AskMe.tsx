@@ -2,17 +2,9 @@
 
 import { startTransition, useEffect, useRef, useState } from "react"
 
-type SourceItem = {
-  id: string
-  title: string
-  category: string
-  source: string
-}
-
 type Message = {
   role: "user" | "assistant"
   content: string
-  sources?: SourceItem[]
 }
 
 const suggestedPrompts = [
@@ -68,7 +60,6 @@ export default function AskMe() {
       const data = (await response.json()) as {
         answer?: string
         error?: string
-        sources?: SourceItem[]
       }
 
       if (!response.ok || !data.answer) {
@@ -81,7 +72,6 @@ export default function AskMe() {
           {
             role: "assistant",
             content: data.answer || "",
-            sources: data.sources || [],
           },
         ])
       })
@@ -172,18 +162,6 @@ export default function AskMe() {
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-7">
                   {message.content}
                 </p>
-                {message.sources?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
-                    {message.sources.map((source) => (
-                      <span
-                        key={source.id}
-                        className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-text-light/72"
-                      >
-                        {source.title}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
               </div>
             ))}
 
