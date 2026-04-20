@@ -65,10 +65,75 @@ const OPENAI_API_URL = "https://api.openai.com/v1"
 const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-5-mini"
 const EMBEDDING_MODEL =
   process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small"
-const TOP_K = 6
+const TOP_K = 8
 const MAX_CONTEXT_MESSAGES = Number(process.env.CHAT_MAX_CONTEXT_MESSAGES || 4)
 const MAX_OUTPUT_TOKENS = Number(process.env.CHAT_MAX_OUTPUT_TOKENS || 220)
 const REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || "low"
+
+const topicKeywordMap = {
+  backend: [
+    "backend",
+    "server",
+    "service",
+    "services",
+    "api",
+    "rest",
+    "database",
+    "databases",
+    "spring",
+    "express",
+    "fastapi",
+    "mongodb",
+    "postgresql",
+    "sql",
+    "jwt",
+    "pydantic",
+    "java",
+    "python",
+  ],
+  cloud: [
+    "cloud",
+    "aws",
+    "deployment",
+    "deploy",
+    "infrastructure",
+    "kubernetes",
+    "docker",
+    "elastic beanstalk",
+    "rds",
+    "s3",
+    "dynamodb",
+    "vpc",
+    "iam",
+    "security group",
+    "k3s",
+  ],
+  frontend: [
+    "frontend",
+    "ui",
+    "react",
+    "next",
+    "html",
+    "css",
+    "accessibility",
+    "wordpress",
+    "wcag",
+    "layout",
+  ],
+  support: [
+    "debug",
+    "debugging",
+    "troubleshooting",
+    "support",
+    "incident",
+    "logs",
+    "errors",
+    "reliability",
+    "issue",
+    "diagnose",
+    "diagnosis",
+  ],
+}
 
 const embeddingCache = new Map<string, number[]>()
 let knowledgeCache:
@@ -294,6 +359,79 @@ function cosineSimilarity(left: number[], right: number[]) {
   return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm))
 }
 
+function inferQueryTopics(question: string) {
+  const normalized = question.toLowerCase()
+
+  return Object.entries(topicKeywordMap)
+    .filter(([, keywords]) =>
+      keywords.some((keyword) => normalized.includes(keyword)),
+    )
+    .map(([topic]) => topic)
+}
+
+function countKeywordMatches(text: string, keywords: string[]) {
+  const normalized = text.toLowerCase()
+  return keywords.reduce(
+    (count, keyword) => count + (normalized.includes(keyword) ? 1 : 0),
+    0,
+  )
+}
+
+function selectRelevantChunks(
+  question: string,
+  chunks: EmbeddedKnowledgeChunk[],
+  queryEmbedding: number[],
+) {
+  const queryTopics = inferQueryTopics(question)
+
+  const scored = chunks.map((chunk) => {
+    let score = cosineSimilarity(queryEmbedding, chunk.embedding)
+
+    for (const topic of queryTopics) {
+      const keywords = topicKeywordMap[topic as keyof typeof topicKeywordMap]
+      const matches = countKeywordMatches(chunk.text, keywords)
+
+      if (matches > 0) {
+        score += Math.min(matches * 0.045, 0.18)
+      }
+    }
+
+    if (queryTopics.length > 0) {
+      if (chunk.category === "skills") score += 0.04
+      if (chunk.category === "project") score += 0.05
+      if (chunk.category === "experience") score += 0.05
+    }
+
+    return { ...chunk, score }
+  })
+
+  const selected: Array<(typeof scored)[number]> = []
+  const selectedIds = new Set<string>()
+
+  if (queryTopics.length > 0) {
+    for (const category of ["experience", "project", "skills"]) {
+      const match = scored
+        .filter((chunk) => chunk.category === category && chunk.score > 0.18)
+        .sort((left, right) => right.score - left.score)[0]
+
+      if (match && !selectedIds.has(match.id)) {
+        selected.push(match)
+        selectedIds.add(match.id)
+      }
+    }
+  }
+
+  for (const chunk of scored.sort((left, right) => right.score - left.score)) {
+    if (selected.length >= TOP_K) break
+    if (selectedIds.has(chunk.id)) continue
+
+    selected.push(chunk)
+    selectedIds.add(chunk.id)
+  }
+
+  return selected
+}
+
 async function embedKnowledgeChunks(chunks: KnowledgeChunk[]) {
   const missing = chunks.filter((chunk) => !embeddingCache.has(chunk.id))
 
@@ -424,13 +562,7 @@ export async function answerPortfolioQuestion({
 
   const [queryEmbedding] = await createEmbeddings([question])
 
-  const topChunks = chunks
-    .map((chunk) => ({
-      ...chunk,
-      score: cosineSimilarity(queryEmbedding, chunk.embedding),
-    }))
-    .sort((left, right) => right.score - left.score)
-    .slice(0, TOP_K)
+  const topChunks = selectRelevantChunks(question, chunks, queryEmbedding)
 
   const context = topChunks
     .map(
@@ -453,7 +585,7 @@ export async function answerPortfolioQuestion({
     body: JSON.stringify({
       model: CHAT_MODEL,
       instructions:
-        "You are the portfolio assistant for Yanhua He. Answer only using the provided knowledge snippets. If the answer is not supported by the snippets, say that you do not see that information in Yanhua's background yet. Keep answers concise, professional, and recruiter-friendly. Answer in first person when describing Yanhua's background, but do not invent metrics, employers, courses, or technologies.",
+        "You are the portfolio assistant for Yanhua He. Answer only using the provided knowledge snippets. If the answer is not supported by the snippets, say that you do not see that information in Yanhua's background yet. Keep answers concise, professional, and recruiter-friendly. Answer in first person when describing Yanhua's background, but do not invent metrics, employers, courses, or technologies. When the user asks about an area like backend, cloud, debugging, or strengths, synthesize across relevant work experience, projects, and skills into a short summary instead of listing one item. Lead with a 1-2 sentence summary, then add a few concise supporting details only if helpful.",
       input: [
         {
           role: "user",
