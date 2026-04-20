@@ -50,10 +50,6 @@ export type KnowledgeChunk = {
   text: string
 }
 
-type EmbeddedKnowledgeChunk = KnowledgeChunk & {
-  embedding: number[]
-}
-
 type KnowledgeInputs = {
   settings: SanitySiteSettings | null
   experiences: SanityExperience[]
@@ -62,10 +58,8 @@ type KnowledgeInputs = {
 }
 
 const OPENAI_API_URL = "https://api.openai.com/v1"
-const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-5-mini"
-const EMBEDDING_MODEL =
-  process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small"
-const TOP_K = 8
+const CHAT_MODEL = process.env.OPENAI_CHAT_MODEL || "gpt-5-nano"
+const TOP_K = 4
 const MAX_CONTEXT_MESSAGES = Number(process.env.CHAT_MAX_CONTEXT_MESSAGES || 4)
 const MAX_OUTPUT_TOKENS = Number(process.env.CHAT_MAX_OUTPUT_TOKENS || 220)
 const REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || "low"
@@ -135,11 +129,10 @@ const topicKeywordMap = {
   ],
 }
 
-const embeddingCache = new Map<string, number[]>()
 let knowledgeCache:
   | {
       fingerprint: string
-      chunks: EmbeddedKnowledgeChunk[]
+      chunks: KnowledgeChunk[]
     }
   | undefined
 
@@ -311,54 +304,6 @@ export function buildKnowledgeChunks({
   return chunks
 }
 
-async function createEmbeddings(input: string[]) {
-  const apiKey = process.env.OPENAI_API_KEY
-
-  if (!apiKey) {
-    throw new Error("Missing OPENAI_API_KEY")
-  }
-
-  const response = await fetch(`${OPENAI_API_URL}/embeddings`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: EMBEDDING_MODEL,
-      input,
-      encoding_format: "float",
-    }),
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Embedding request failed: ${response.status} ${errorText}`)
-  }
-
-  const data = (await response.json()) as {
-    data: Array<{ embedding: number[] }>
-  }
-
-  return data.data.map((item) => item.embedding)
-}
-
-function cosineSimilarity(left: number[], right: number[]) {
-  let dot = 0
-  let leftNorm = 0
-  let rightNorm = 0
-
-  for (let i = 0; i < left.length; i += 1) {
-    dot += left[i] * right[i]
-    leftNorm += left[i] * left[i]
-    rightNorm += right[i] * right[i]
-  }
-
-  if (leftNorm === 0 || rightNorm === 0) return 0
-
-  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm))
-}
-
 function inferQueryTopics(question: string) {
   const normalized = question.toLowerCase()
 
@@ -379,28 +324,37 @@ function countKeywordMatches(text: string, keywords: string[]) {
 
 function selectRelevantChunks(
   question: string,
-  chunks: EmbeddedKnowledgeChunk[],
-  queryEmbedding: number[],
+  chunks: KnowledgeChunk[],
 ) {
+  const normalizedQuestion = question.toLowerCase()
+  const questionTerms = normalizedQuestion
+    .split(/[^a-z0-9+#.]+/i)
+    .filter((term) => term.length > 2)
   const queryTopics = inferQueryTopics(question)
 
   const scored = chunks.map((chunk) => {
-    let score = cosineSimilarity(queryEmbedding, chunk.embedding)
+    const chunkText = `${chunk.title} ${chunk.text}`.toLowerCase()
+    let score = 0
 
-    for (const topic of queryTopics) {
-      const keywords = topicKeywordMap[topic as keyof typeof topicKeywordMap]
-      const matches = countKeywordMatches(chunk.text, keywords)
-
-      if (matches > 0) {
-        score += Math.min(matches * 0.045, 0.18)
+    for (const term of questionTerms) {
+      if (chunkText.includes(term)) {
+        score += term.length > 5 ? 0.08 : 0.04
       }
     }
 
-    if (queryTopics.length > 0) {
-      if (chunk.category === "skills") score += 0.04
-      if (chunk.category === "project") score += 0.05
-      if (chunk.category === "experience") score += 0.05
+    for (const topic of queryTopics) {
+      const keywords = topicKeywordMap[topic as keyof typeof topicKeywordMap]
+      const matches = countKeywordMatches(chunkText, keywords)
+
+      if (matches > 0) {
+        score += Math.min(matches * 0.08, 0.32)
+      }
     }
+
+    if (queryTopics.length > 0 && chunk.category === "skills") score += 0.05
+    if (queryTopics.length > 0 && chunk.category === "project") score += 0.06
+    if (queryTopics.length > 0 && chunk.category === "experience") score += 0.06
+    if (chunk.category === "summary") score += 0.03
 
     return { ...chunk, score }
   })
@@ -411,7 +365,7 @@ function selectRelevantChunks(
   if (queryTopics.length > 0) {
     for (const category of ["experience", "project", "skills"]) {
       const match = scored
-        .filter((chunk) => chunk.category === category && chunk.score > 0.18)
+        .filter((chunk) => chunk.category === category && chunk.score > 0.12)
         .sort((left, right) => right.score - left.score)[0]
 
       if (match && !selectedIds.has(match.id)) {
@@ -432,22 +386,6 @@ function selectRelevantChunks(
   return selected
 }
 
-async function embedKnowledgeChunks(chunks: KnowledgeChunk[]) {
-  const missing = chunks.filter((chunk) => !embeddingCache.has(chunk.id))
-
-  if (missing.length) {
-    const embeddings = await createEmbeddings(missing.map((chunk) => chunk.text))
-    missing.forEach((chunk, index) => {
-      embeddingCache.set(chunk.id, embeddings[index])
-    })
-  }
-
-  return chunks.map((chunk) => ({
-    ...chunk,
-    embedding: embeddingCache.get(chunk.id) || [],
-  }))
-}
-
 export async function getEmbeddedKnowledge(inputs: KnowledgeInputs) {
   const chunks = buildKnowledgeChunks(inputs)
   const fingerprint = createHash("sha1")
@@ -458,13 +396,12 @@ export async function getEmbeddedKnowledge(inputs: KnowledgeInputs) {
     return knowledgeCache.chunks
   }
 
-  const embedded = await embedKnowledgeChunks(chunks)
   knowledgeCache = {
     fingerprint,
-    chunks: embedded,
+    chunks,
   }
 
-  return embedded
+  return chunks
 }
 
 function extractTextsDeep(value: unknown, seen = new WeakSet<object>()): string[] {
@@ -552,7 +489,7 @@ export async function answerPortfolioQuestion({
 }: {
   question: string
   messages: ChatMessage[]
-  chunks: EmbeddedKnowledgeChunk[]
+  chunks: KnowledgeChunk[]
 }) {
   const apiKey = process.env.OPENAI_API_KEY
 
@@ -560,14 +497,12 @@ export async function answerPortfolioQuestion({
     throw new Error("Missing OPENAI_API_KEY")
   }
 
-  const [queryEmbedding] = await createEmbeddings([question])
-
-  const topChunks = selectRelevantChunks(question, chunks, queryEmbedding)
+  const topChunks = selectRelevantChunks(question, chunks)
 
   const context = topChunks
     .map(
       (chunk, index) =>
-        `[${index + 1}] ${chunk.title} (${chunk.category}, ${chunk.source})\n${chunk.text}`,
+        `[${index + 1}] ${chunk.title} (${chunk.category}, ${chunk.source})\n${chunk.text.slice(0, 260)}`,
     )
     .join("\n\n")
 
